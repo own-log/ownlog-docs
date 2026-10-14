@@ -30,5 +30,5 @@ OwnLog를 만들면서 쓴 기술과 작업 방식을 **개념부터** 설명하
 | [`README.md`](https://github.com/AIP-1/blog-basic-AIGJ_01_007-firstblog/blob/develop/README.md) | 프로젝트 소개, 실행 방법 요약 |
 | [`CHANGELOG.md`](https://github.com/AIP-1/blog-basic-AIGJ_01_007-firstblog/blob/develop/CHANGELOG.md) | 버전별 변경 기록 |
 | [`docs/API명세서.md`](../API명세서.md) | API 요청·응답·에러 |
-| [`docs/트러블슈팅.md`](../트러블슈팅.md) | 실제로 겪은 문제 19가지와 해결 과정 |
+| [`docs/트러블슈팅.md`](../트러블슈팅.md) | 실제로 겪은 문제 20가지와 해결 과정 |
 | [`e2e/README.md`](https://github.com/AIP-1/blog-basic-AIGJ_01_007-firstblog/blob/develop/e2e/README.md) | 화면 점검 실행 방법 |

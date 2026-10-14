@@ -6,7 +6,7 @@
 ## 목차
 1. [GitHub Organization이란](#1-github-organization이란)
 2. [역할과 권한](#2-역할과-권한)
-3. [이 저장소와 AIP-1 Organization](#3-이-저장소와-aip-1-organization)
+3. [이 저장소와 AIP-1 Organization](#3-이-저장소와-aip-1-organization) · [3.1 own-log Organization](#31-own-log-organization-프로젝트-전용-조직)
 4. [저장소 공개 범위](#4-저장소-공개-범위)
 5. [Secrets: 비밀값 보관함](#5-secrets-비밀값-보관함)
 6. [Actions 탭 보는 법](#6-actions-탭-보는-법)
@@ -75,6 +75,21 @@ git remote -v
 
 > 조직의 기본 권한, 저장소 공개 범위, 조직 차원의 규칙이 실제로 어떻게 설정됐는지는 이 저장소 안의 파일로는 알 수 없어요. GitHub 화면에서 직접 확인해야 해요.
 
+### 3.1 own-log Organization (프로젝트 전용 조직)
+
+2026-10-14에 프로젝트 전용 조직 [`own-log`](https://github.com/own-log)에 저장소를 정리했어요. 수업 저장소(`AIP-1`)는 그대로 두고 배포도 계속 거기서 해요.
+
+| 저장소 | 내용 | 만든 방법 |
+|---|---|---|
+| [`.github`](https://github.com/own-log/.github) (Public) | `profile/README.md`: 조직 첫 화면의 프로젝트 소개 | 새로 만듦. 조직 프로필은 **이름이 `.github`이고 Public**인 저장소의 `profile/README.md`만 보여 줘요 |
+| [`blog-basic-AIGJ_01_007-firstblog`](https://github.com/own-log/blog-basic-AIGJ_01_007-firstblog) | 소스 코드 사본 | `AIP-1` 저장소를 **Fork**. 원본을 건드리지 않고 이력·태그를 복사 |
+| [`ownlog-docs`](https://github.com/own-log/ownlog-docs) | 요구사항, ERD, API 명세, 설계서, 트러블슈팅, 이 가이드 | 코드 저장소에서 문서만 이력째 분리 (트러블슈팅 20번) |
+
+주의할 점
+- **Fork는 자동으로 따라오지 않아요.** 릴리스 뒤에 `git push ownlog main develop --tags`로 맞춰요. fork 화면의 *Sync fork* 버튼은 기본 브랜치만 맞춰 줘요.
+- Fork할 때 "Copy the `main` branch only"를 체크하면 `develop`과 태그가 빠져요. 빠졌다면 위 명령으로 채우면 돼요.
+- Fork한 저장소는 GitHub가 **Actions를 꺼 둬요.** Secrets도 따라가지 않아서, 배포는 `AIP-1` 한 곳에서만 일어나요.
+
 ---
 
 ## 4. 저장소 공개 범위
@@ -136,7 +151,7 @@ GitHub Secrets ──▶ deploy.yml (env:, with:) ──▶ SSH로 서버 접속
 | **CI** (`ci.yml`) | `develop`, `feature/**`, `fix/**`, `chore/**`, `release/**`, `hotfix/**` 푸시, `main`·`develop` 대상 PR | 백엔드 테스트, 프론트 린트·빌드 |
 | **Deploy** (`deploy.yml`) | `main` 푸시, 또는 수동 실행 | 위 테스트 → Docker 이미지 → 서버 전송 → `deploy.sh` |
 
-둘 다 `*.md`, `docs/**`만 바뀐 푸시는 건너뛰어요(Deploy는 `scripts/**`도).
+둘 다 `*.md`, `docs/**`만 바뀐 푸시는 건너뛰어요(Deploy는 `scripts/**`, `e2e/**`도).
 
 보는 법
 1. 저장소 → **Actions** 탭 → 왼쪽에서 워크플로(CI / Deploy) 선택
@@ -243,7 +258,7 @@ README는 저장소의 **첫 화면**이에요. GitHub에서 저장소를 열면
 - 테스트 개수(백엔드 193개, 화면 점검 125개) 같은 숫자는 코드가 바뀌면 낡아요. 릴리스 때 다시 세어 갱신하거나 표현을 바꿔요.
 - 라이선스, 만든 사람·연락처 절이 없어요. 포트폴리오로 쓸 거라면 맨 아래에 작성자 정보를 넣으면 좋아요.
 - 일부 표현은 코드와 어긋나지 않는지 확인이 필요해요. 예: "앞으로의 계획" 5번의 "글 삭제 후 파일 삭제 이벤트"는 현재 이벤트 구조만 있고 글 삭제에는 연결되지 않았어요 ([파일 업로드 가이드 7장](파일-업로드.md#7-파일-지우기)).
-- 이 가이드 모음(`docs/guide/`)은 아직 README "문서" 절에 링크되어 있지 않아요.
+- 이 가이드 모음(`docs/guide/`)은 코드 저장소 README "문서" 절과 이 저장소 README에 링크되어 있어요.
 
 ---
 

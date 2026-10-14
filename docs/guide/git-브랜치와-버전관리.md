@@ -568,7 +568,7 @@ git reset --hard origin/develop     # develop을 원격 상태로 되돌려요 (
 푸시까지 했다면 이력을 다시 쓰지 말고 그대로 두거나 `git revert`로 되돌리는 커밋을 만들어요.
 
 **Q. `main`에 푸시했는데 배포가 안 돼요.**
-`*.md`, `docs/`, `scripts/`만 바뀐 푸시는 배포하지 않게 되어 있어요(`deploy.yml`의 `paths-ignore`). 그 밖이라면 GitHub의 **Actions** 탭에서 실패한 단계를 확인해요. Actions 화면의 **Run workflow** 버튼(`workflow_dispatch`)으로 직접 배포할 수도 있어요.
+`*.md`, `docs/`, `scripts/`, `e2e/`만 바뀐 푸시는 배포하지 않게 되어 있어요(`deploy.yml`의 `paths-ignore`). 설계·운영 문서는 v1.2.1부터 별도 저장소([own-log/ownlog-docs](https://github.com/own-log/ownlog-docs))에 있어서, 문서 수정은 코드 저장소의 배포와 아예 상관이 없어요. 그 밖이라면 GitHub의 **Actions** 탭에서 실패한 단계를 확인해요. Actions 화면의 **Run workflow** 버튼(`workflow_dispatch`)으로 직접 배포할 수도 있어요.
 
 **Q. `develop`에 푸시했는데 CI가 안 돌아요.**
 문서만 바꿨다면 정상이에요 (`ci.yml`도 `**.md`, `docs/**`를 무시해요).

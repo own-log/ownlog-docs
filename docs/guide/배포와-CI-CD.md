@@ -14,6 +14,9 @@
 | `deploy/deploy.sh` | 서버에서 실행돼요. **블루-그린 무중단 배포**의 본체 |
 | `backend/src/main/resources/application-prod.yaml` | 운영 설정 (DB, 정상 종료 등) |
 
+> **저장소 구성 (v1.2.1부터)** 위 파일은 모두 코드 저장소([AIP-1/blog-basic-AIGJ_01_007-firstblog](https://github.com/AIP-1/blog-basic-AIGJ_01_007-firstblog))에 있어요.
+> 이 문서를 포함한 설계·운영 문서는 [own-log/ownlog-docs](https://github.com/own-log/ownlog-docs)로 옮겼어요. 문서를 고쳐도 배포 파이프라인이 아예 시작되지 않게 하려고요 (트러블슈팅 20번).
+
 ---
 
 ## 1. 먼저 용어부터
@@ -114,11 +117,13 @@ jobs:
 on:
   push:
     branches: [main]
-    paths-ignore: ["**.md", "docs/**", "scripts/**"]
+    paths-ignore: ["**.md", "docs/**", "scripts/**", "e2e/**"]   # 운영 이미지에 들어가지 않는 파일
   workflow_dispatch:     # Actions 화면의 "Run workflow" 버튼으로 직접 실행도 돼요
 env:
   APP_PORT: "8360"       # 공용 Nginx가 보내 주는 포트 (= 우리 프록시가 듣는 포트)
 ```
+
+- `paths-ignore`는 푸시에 담긴 **모든** 파일이 목록에 맞을 때만 건너뛰어요. 문서 커밋에 `e2e/` 파일이 하나라도 섞이면 배포가 돌았어요. 그래서 v1.2.1에서 `e2e/**`를 추가하고, 문서는 별도 저장소로 옮겼어요 (트러블슈팅 20번).
 
 **① test 잡** — `ci.yml`과 같아요. `deploy` 잡에 `needs: test`가 있어서 **테스트가 실패하면 배포가 아예 시작되지 않아요.**
 
