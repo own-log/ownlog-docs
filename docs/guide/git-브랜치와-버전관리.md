@@ -3,7 +3,7 @@
 > 이 문서를 읽고 나면: Git의 기본 동작을 이해하고, 이 저장소의 브랜치(Git Flow)가 왜 이렇게 생겼는지 알고,
 > 기능 추가 · 릴리스 · 핫픽스를 명령어 그대로 따라 할 수 있어요.
 >
-> 규칙의 원본은 [`CLAUDE.md` 11장](../../CLAUDE.md)이에요. 이 문서는 그 규칙을 **풀어서 설명**해요.
+> 규칙의 원본은 [`CLAUDE.md` 11장](https://github.com/AIP-1/blog-basic-AIGJ_01_007-firstblog/blob/develop/CLAUDE.md)이에요. 이 문서는 그 규칙을 **풀어서 설명**해요.
 
 ## 목차
 1. [Git 기초 개념](#1-git-기초-개념)

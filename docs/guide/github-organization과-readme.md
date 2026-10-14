@@ -214,7 +214,7 @@ README는 저장소의 **첫 화면**이에요. GitHub에서 저장소를 열면
 
 ## 11. 이 프로젝트 README 구조 따라 읽기
 
-[`README.md`](../../README.md)의 절 순서와 역할이에요.
+[`README.md`](https://github.com/AIP-1/blog-basic-AIGJ_01_007-firstblog/blob/develop/README.md)의 절 순서와 역할이에요.
 
 | # | 절 | 담긴 것 | 이 절이 하는 일 |
 |---|---|---|---|
