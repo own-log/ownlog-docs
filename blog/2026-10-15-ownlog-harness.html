@@ -1,0 +1,153 @@
+<!--
+  티스토리 글 초안 (TinyMCE HTML)
+  제목: Claude Code 하네스로 2주 만에 만든 블로그 플랫폼 회고
+  URL 슬러그: claude-code-harness-ownlog-retrospective
+  태그: ClaudeCode, AI개발, 하네스, SpringBoot, React, 무중단배포, 블루그린, Testcontainers, 트러블슈팅, 회고
+  공개 범위: 비공개로 저장 후 확인 → 승인 시 공개
+-->
+<blockquote data-ke-style="style2">
+<p data-ke-size="size16"><b>TL;DR</b> 2주 동안 멀티유저 블로그 플랫폼 OwnLog를 Claude Code와 1인으로 만들었다.<br />코드의 대부분은 AI가 썼고, 나는 <b>방향 결정·규칙·운영 환경</b>을 맡았다.<br />완료는 AI의 "됐어요"가 아니라 <b>테스트 193개·화면 점검 125개·측정값</b>으로만 판단했고, 실제로 그 장치들이 AI의 오류를 여러 번 잡았다.</p>
+</blockquote>
+<p data-ke-size="size16">학교 과제로 티스토리 같은 멀티유저 블로그를 만들었다. 이번 글은 기능 소개가 아니라 <b>AI에게 무엇을 맡기고, 무엇을 어떻게 검증했는지</b>, 그리고 그걸 가능하게 한 "하네스"에 대한 회고다.</p>
+<p data-ke-size="size16"><span style="color: #9d9d9d; font-size: 14px;">※ 본문 코드는 구조 설명을 위한 단순화 예시이며, 기준 버전은 Spring Boot 4.1 / Spring Security 7 / React 19이다.</span></p>
+<blockquote data-ke-style="style3">
+<p data-ke-size="size16"><b>목차</b><br />1. 프로젝트와 제약<br />2. 하네스: AI를 안전하게 일하게 만드는 장치<br />3. AI에게 맡긴 것 vs 직접 검증한 것<br />4. 의도 → 구현 → 측정: 대표 사례 4가지<br />5. 백엔드에서 꼭 짚은 것: 롤백·동시성·인덱스·병목<br />6. 하네스가 막지 못한 것<br />7. 체크리스트<br />8. 마치며</p>
+</blockquote>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2>1. 프로젝트와 제약</h2>
+<p data-ke-size="size16">OwnLog(온로그)는 가입하면 <code>/@아이디</code> 블로그가 생기는 멀티유저 블로그다. 과제 조건만 채우면 다른 결과물과 구별되지 않아서, 기록에 <b>시간 축</b>(정해진 시각에 열리는 타임캡슐)과 <b>연결 축</b>(글끼리 <code>[[링크]]</code>, 그 연결을 별과 선으로 보여 주는 "기록 우주")을 더했다.</p>
+<table style="border-collapse: collapse; width: 100%;" border="1" data-ke-align="alignLeft" data-ke-style="style12">
+<tbody>
+<tr><td style="background-color: #2f3640; color: #ffffff;"><b>항목</b></td><td style="background-color: #2f3640; color: #ffffff;"><b>내용</b></td></tr>
+<tr><td>기간 / 인원</td><td>2026-10-01 ~ 10-14 / 1명 + Claude Code</td></tr>
+<tr><td>스택</td><td>Java 21, Spring Boot 4.1, React 19, PostgreSQL 17, Docker, GitHub Actions</td></tr>
+<tr><td>제약</td><td>수업 공용 서버(포트 8360~8369만, 앞단 Nginx는 강사님 관리), 학교 내부망 DB</td></tr>
+<tr><td>결과</td><td>커밋 97개(그중 79개 AI 공동 작성), 버전 v0.1.0 ~ v1.2.1, 트러블슈팅 기록 20건</td></tr>
+</tbody>
+</table>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2>2. 하네스: AI를 안전하게 일하게 만드는 장치</h2>
+<p data-ke-size="size16">AI 모델이 엔진이라면 하네스는 차체·계기판·브레이크다. 엔진이 좋아도 브레이크가 없으면 맡길 수 없다. 이번 프로젝트에서는 두 종류의 하네스를 썼다.</p>
+<h3>2-1. 개발 하네스 (Claude Code)</h3>
+<table style="border-collapse: collapse; width: 100%;" border="1" data-ke-align="alignLeft" data-ke-style="style12">
+<tbody>
+<tr><td style="background-color: #2f3640; color: #ffffff;"><b>장치</b></td><td style="background-color: #2f3640; color: #ffffff;"><b>무엇을</b></td><td style="background-color: #2f3640; color: #ffffff;"><b>효과</b></td></tr>
+<tr><td>CLAUDE.md</td><td>매 세션 자동으로 읽는 프로젝트 규칙: 기술 버전, 응답 형식, 완료 기준 7단계, Git Flow, 트러블슈팅 기록 규칙</td><td>세션이 바뀌어도 같은 기준. 최신 버전에서 예전 API를 쓰는 실수 방지</td></tr>
+<tr><td>권한 3단계</td><td>바로 해도 됨 / 먼저 물어봄(삭제, 새 라이브러리, DB 구조, 배포 설정, main 병합) / 하지 않음(비밀값 기록, force push)</td><td>길게 자율로 맡겨도 위험한 지점에서 멈춤</td></tr>
+<tr><td>메모리</td><td>"배포 전 배포 설명서 먼저 읽기", "큰 단위로 진행하고 스스로 검증한 뒤 짧게 보고"</td><td>내 피드백이 다음 세션에도 유지</td></tr>
+<tr><td>서브에이전트 + git worktree</td><td>독립적인 일을 별도 폴더·브랜치에서 동시에</td><td>하루에 문서 4종·연관도 개선·무중단 배포·소셜 로그인을 병렬로, 본체가 검토 후 병합</td></tr>
+</tbody>
+</table>
+<h3>2-2. 검증 하네스</h3>
+<table style="border-collapse: collapse; width: 100%;" border="1" data-ke-align="alignLeft" data-ke-style="style12">
+<tbody>
+<tr><td style="background-color: #2f3640; color: #ffffff;"><b>장치</b></td><td style="background-color: #2f3640; color: #ffffff;"><b>만든 이유</b></td></tr>
+<tr><td>Testcontainers (실제 PostgreSQL)</td><td>부분 인덱스, CHECK, ON CONFLICT, 네이티브 SQL은 메모리 DB로 검증할 수 없음</td></tr>
+<tr><td>화면 점검 125개 (헤드리스 Chrome)</td><td>AI의 프론트 수정이 틀린 것을 잡기 위해</td></tr>
+<tr><td>점검 격리 (새 프로필, 별도 DB 스키마, 시간 제한)</td><td>결과가 실행마다 달라지고, 한 번은 30분 동안 멈췄음</td></tr>
+<tr><td>배포 자가 진단</td><td>배포 실패 원인을 값만 바꿔 가며 추측하던 상황을 끝내기 위해</td></tr>
+<tr><td>부하 측정</td><td>"무중단"을 말이 아니라 실패 건수로 증명</td></tr>
+</tbody>
+</table>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2>3. AI에게 맡긴 것 vs 직접 검증한 것</h2>
+<p data-ke-size="size16">솔직하게 말하면 코드와 문서의 대부분은 AI가 썼다. 그래서 내 역할은 타이핑이 아니라 <b>결정·규칙·운영 환경·검증 기준</b>이었다.</p>
+<table style="border-collapse: collapse; width: 100%;" border="1" data-ke-align="alignLeft" data-ke-style="style12">
+<tbody>
+<tr><td style="background-color: #2f3640; color: #ffffff;"><b>영역</b></td><td style="background-color: #2f3640; color: #ffffff;"><b>AI</b></td><td style="background-color: #2f3640; color: #ffffff;"><b>나</b></td></tr>
+<tr><td>방향</td><td>선택지와 추천안</td><td>MVP 범위, 독창 기능 방향, 디자인 방향, 출시 시점 결정</td></tr>
+<tr><td>규칙</td><td>CLAUDE.md 초안</td><td>권한·완료 기준·Git Flow 확정</td></tr>
+<tr><td>구현</td><td>백엔드·프론트·마이그레이션·배포 스크립트·문서</td><td>결과 확인, 방향 수정</td></tr>
+<tr><td>운영 환경</td><td>명령어·절차 안내</td><td>서버 Nginx 설정 정리, GitHub Secrets 등록, SSH 키 등록과 작업 후 삭제</td></tr>
+<tr><td>학습</td><td>실습 설계와 질문</td><td>리버스 프록시·헤더·포트·헬스 체크를 직접 명령으로 확인</td></tr>
+</tbody>
+</table>
+<p data-ke-size="size16">AI를 그대로 믿지 않은 이유는 <b>실제로 AI의 수정이 틀린 적이 있기 때문</b>이다.</p>
+<table style="border-collapse: collapse; width: 100%;" border="1" data-ke-align="alignLeft" data-ke-style="style12">
+<tbody>
+<tr><td style="background-color: #2f3640; color: #ffffff;"><b>AI가 한 일</b></td><td style="background-color: #2f3640; color: #ffffff;"><b>잡아낸 장치</b></td></tr>
+<tr><td>"두 번 클릭 방지"를 React state로 넣고 고쳤다고 보고</td><td>화면 점검이 여전히 두 번 등록되는 것을 잡음</td></tr>
+<tr><td>버그를 고치면서 새 버그(음수 진행률)를 만듦</td><td>화면 점검을 반복 실행하자 3번 중 1번 실패</td></tr>
+<tr><td>서버가 아예 뜨지 않는 코드(빈 순환 참조)</td><td>통합 테스트 14개 전부 실패 → 운영에 가지 않음</td></tr>
+<tr><td>로컬 테스트를 통과한 기능을 배포</td><td><b>내가</b> 운영에서 써 보다 동작 이상을 발견</td></tr>
+<tr><td>문서에 과장된 수치("쿼리 0개 수정")</td><td>내가 재확인 요청 → 실제로 세어 정정</td></tr>
+</tbody>
+</table>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2>4. 의도 → 구현 → 측정: 대표 사례 4가지</h2>
+<h3>4-1. 타임랩스: 측정이 틀린 의도를 드러냄</h3>
+<p data-ke-size="size16"><b>문제</b> ▶를 누르면 별이 하나씩 태어나야 하는데, 운영에서 0.2초 만에 별 27개 중 24개가 나타나고 이후 변화가 없었다.<br /><b>원인</b> 첫 글 시각부터 지금까지 <b>시간 비례</b>로 재생했다. 운영 데이터는 글이 몇 분 안에 몰려 있었고, 테스트 데이터는 날짜가 고르게 퍼져 있었다.<br /><b>해결</b> 시간 대신 <b>쓴 순서</b>로 재생. 운영에서 0.2초 0개 → 1초 2개 → 2초 5개 → 4초 10개 → 6초 16개로 늘어나는 것을 확인했다.<br /><b>함정</b> 고친 직후 가끔 오류 화면이 떴다. <code>requestAnimationFrame</code>이 넘기는 시각은 그 프레임의 시작 시각이라, 버튼을 누른 순간보다 <b>이를 수 있다</b>.</p>
+<pre class="javascript" data-ke-language="javascript" data-ke-type="codeblock"><code>const startedAt = performance.now()
+const step = (now) =&gt; {
+  // now가 startedAt보다 이를 수 있어서 0~1로 묶는다
+  const progress = Math.min(1, Math.max(0, (now - startedAt) / duration))
+  setCount(Math.floor(progress * total))
+}</code></pre>
+<h3>4-2. 비공개 글이 새는 경로를 구조로 막기</h3>
+<p data-ke-size="size16"><b>문제</b> 목록·검색·태그·링크·그래프마다 "비공개·봉인 캡슐은 빼라"를 다시 쓰면 한 곳만 빠뜨려도 유출이다.<br /><b>해결</b> 공개 판단을 JPQL 상수 하나와 엔티티 메서드 하나에만 두고 재사용한다.</p>
+<pre class="java" data-ke-language="java" data-ke-type="codeblock"><code>// 단순화 예시
+public static final String PUBLIC_CONDITION = """
+    p.status = PostStatus.PUBLISHED and p.visibility = Visibility.PUBLIC
+    and c.visibility = Visibility.PUBLIC
+    and p.publishedAt &lt;= current_timestamp   -- 봉인된 타임캡슐은 열릴 때까지 제외
+    """;</code></pre>
+<p data-ke-size="size16"><b>결과</b> 타임캡슐을 추가할 때 JPQL 6개는 수정 없이 따라왔고, 네이티브 SQL 1곳만 따로 고쳤다. 조회 경로마다 누수 테스트를 남겼다.</p>
+<h3>4-3. 무중단 배포: 공용 Nginx를 건드리지 않고</h3>
+<p data-ke-size="size16"><b>문제</b> 배포할 때마다 컨테이너를 내렸다 올려서 수십 초 동안 접속이 실패했다. 앞단 Nginx는 내가 바꿀 수 없었다.<br /><b>해결</b> 공용 Nginx 뒤에 <b>우리 Nginx 컨테이너를 한 단 더</b> 두고 블루-그린으로 전환한다.</p>
+<pre class="bash" data-ke-language="bash" data-ke-type="codeblock"><code># 단순화 예시
+docker run -d --name ownlog-green -e SERVER_PORT=8362 ownlog:new
+until curl -fs localhost:8362/api/topics; do sleep 2; done   # -f: 400 이상이면 실패
+sed -i 's/8361/8362/' proxy/ownlog.conf &amp;&amp; docker exec ownlog-proxy nginx -s reload
+sleep 10 &amp;&amp; docker stop -t 30 ownlog-blue   # Spring graceful shutdown(20초)보다 길게</code></pre>
+<table style="border-collapse: collapse; width: 100%;" border="1" data-ke-align="alignLeft" data-ke-style="style12">
+<tbody>
+<tr><td style="background-color: #2f3640; color: #ffffff;"><b>상황 (로컬, 같은 스크립트)</b></td><td style="background-color: #2f3640; color: #ffffff;"><b>요청</b></td><td style="background-color: #2f3640; color: #ffffff;"><b>실패</b></td></tr>
+<tr><td>블루-그린 배포 2회</td><td>13,308</td><td><b>0</b></td></tr>
+<tr><td>새 버전이 못 뜨는 배포 (DB 비밀번호를 일부러 틀림)</td><td>10,395</td><td><b>0</b> (전환하지 않음)</td></tr>
+<tr><td>예전 방식 (끄고 켜기)</td><td>3,966</td><td>308</td></tr>
+</tbody>
+</table>
+<p data-ke-size="size16"><b>함정</b> <code>curl</code>은 401·500도 "응답이 왔으니 성공(종료 코드 0)"으로 본다. <code>-f</code> 한 글자가 빠지면 고장 난 새 버전으로 전환된다. 그리고 이 측정은 <b>로컬</b> 값이다. 운영 반영은 아직 확인하지 못했다.</p>
+<h3>4-4. 관련 글 선: "많다"와 "의미 있다"는 다르다</h3>
+<p data-ke-size="size16"><b>문제</b> 태그를 하나라도 같이 쓰면 선을 이었더니, "여행" 같은 흔한 태그 하나로 우주가 거미줄(선 36개)이 됐다.<br /><b>해결</b> 제목·요약·태그의 <b>TF-IDF 유사도</b> 0.3 이상, 별마다 상위 3개만.<br /><b>결과</b> 같은 데이터에서 관련 선 36 → 2개, 글 500개 합성 데이터에서 44~103ms. 기준값별 결과(0.25 → 5개, 0.15 → 19개)를 기록해 두고 근거를 갖고 조정할 수 있게 했다.</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2>5. 백엔드에서 꼭 짚은 것: 롤백·동시성·인덱스·병목</h2>
+<h3>5-1. 트랜잭션 롤백</h3>
+<p data-ke-size="size16">회원가입은 회원 → 블로그 → 기본 카테고리를, 탈퇴는 글·좋아요·북마크 삭제와 개인정보 익명화를 <b>한 트랜잭션</b>으로 묶었다. 중간 단계를 일부러 실패시키는 테스트로 앞 단계까지 모두 되돌아가는 것을 확인했다.</p>
+<h3>5-2. 동시성 (Lost Update)</h3>
+<p data-ke-size="size16">좋아요를 "읽고 → 1 더해 → 저장"하면 동시 요청이 서로 덮어쓴다. 애플리케이션이 계산하지 않고 DB가 직접 더하게 했다.</p>
+<pre class="java" data-ke-language="java" data-ke-type="codeblock"><code>// 단순화 예시
+// INSERT INTO post_likes ... ON CONFLICT DO NOTHING  → 새로 넣었으면 1, 이미 있으면 0
+if (postLikeRepository.insertIfAbsent(userId, postId) == 1) {   // 실제로 새로 눌렀을 때만
+    postRepository.increaseLikeCount(postId);  // UPDATE posts SET like_count = like_count + 1
+}</code></pre>
+<p data-ke-size="size16">테스트: 서로 다른 회원 100명 동시 좋아요 → 정확히 100, 한 회원이 동시에 10번 → 정확히 1, 50명 동시 조회 → 조회수 정확히 50.</p>
+<h3>5-3. 인덱스와 N+1</h3>
+<p data-ke-size="size16">목록은 DTO 프로젝션으로 가져와서, 메인 목록은 카드 수와 상관없이 SQL 2개(목록 + 개수) 이하, 댓글 6개 조회는 5개 이하인 것을 Hibernate 통계로 테스트한다. 반대로 <b>아직 하지 않은 것</b>도 있다. 댓글 <code>parent_id</code>, 글 <code>category_id</code>에는 인덱스가 없어서 댓글·글 삭제와 탈퇴 때 표 전체를 훑는다. 데이터가 적은 지금은 문제가 없지만, 새 마이그레이션이 필요한 변경이라 결정을 미뤄 두었다.</p>
+<h3>5-4. 트래픽이 늘면 어디가 먼저 막힐까</h3>
+<ul>
+<li><b>검색:</b> 지금은 LIKE 검색이라 글이 많아지면 느려진다. <code>pg_trgm</code> 또는 전문 검색이 다음 단계다.</li>
+<li><b>기록 우주:</b> 별 300/500개, 선 1,000/1,500개 상한을 둬서 응답 크기를 묶었다.</li>
+<li><b>서버 여러 대로 늘릴 때:</b> 소셜 로그인의 1회용 코드와 state를 서버 메모리·세션에 둔다. 한 대일 때는 괜찮지만, 여러 대가 되면 공유 저장소(예: DB나 서명된 쿠키)로 옮겨야 한다.</li>
+<li><b>배포 동시 실행:</b> 배포 스크립트에 잠금이 없어 두 배포가 겹치면 서로를 지울 수 있다. <code>flock</code>이나 Actions <code>concurrency</code>로 막는 것이 남은 일이다.</li>
+</ul>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2>6. 하네스가 막지 못한 것</h2>
+<table style="border-collapse: collapse; width: 100%;" border="1" data-ke-align="alignLeft" data-ke-style="style12">
+<tbody>
+<tr><td style="background-color: #2f3640; color: #ffffff;"><b>새어 나간 것</b></td><td style="background-color: #2f3640; color: #ffffff;"><b>왜</b></td><td style="background-color: #2f3640; color: #ffffff;"><b>보완</b></td></tr>
+<tr><td>커밋하면 안 되는 파일을 AI가 스테이징 (푸시 전 발견)</td><td>금지 규칙이 문서에만 있었음</td><td>.gitignore로 구조화</td></tr>
+<tr><td>배포 스크립트 로컬 시험 중 다른 Docker 이미지 삭제</td><td>운영용 정리 단계가 로컬에서도 실행</td><td>시험용 스위치 추가</td></tr>
+<tr><td>운영 배포 결과 미확인</td><td>AI가 비공개 저장소의 Actions 로그를 볼 수 없음</td><td>사람이 확인, 릴리스 절차에 운영 버전 확인 명시</td></tr>
+<tr><td>테스트 데이터 ≠ 운영 데이터</td><td>시연 데이터의 날짜 분포가 운영과 달랐음</td><td>운영 데이터 모양을 재현한 회귀 점검</td></tr>
+</tbody>
+</table>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2>7. 체크리스트</h2>
+<blockquote data-ke-style="style3">
+<p data-ke-size="size16"><b>AI와 개발할 때 다시 쓸 체크리스트</b><br />☐ 규칙 파일에 "바로 / 먼저 물어봄 / 하지 않음"을 나눠 적었나<br />☐ 완료 기준이 "구현"이 아니라 "테스트·측정"인가<br />☐ 테스트 DB가 운영 DB와 같은 종류인가<br />☐ 테스트 데이터가 운영 데이터의 모양(분포)을 닮았나<br />☐ 금지 사항을 문서가 아니라 구조(.gitignore, 권한)로 막았나<br />☐ 헬스 체크가 상태 코드까지 보는가 (curl -f)<br />☐ "푸시했다"와 "운영에 반영됐다"를 따로 확인했나<br />☐ AI가 쓴 핵심 코드를 내가 설명할 수 있나</p>
+</blockquote>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2>8. 마치며</h2>
+<p data-ke-size="size16">AI에게 많이 맡길수록 내가 해야 할 일은 줄어드는 게 아니라 바뀌었다. 무엇을 만들지 정하고, 어디서 멈추게 할지 규칙으로 적고, 결과를 무엇으로 믿을지 기준을 세우는 일이었다. 가장 크게 배운 건 <b>"됐다"는 말보다 측정값을 믿는 습관</b>이다. 다만 코드의 대부분을 AI가 쓴 만큼, 내가 모든 코드를 설명할 수 있는 수준은 아직 아니다. 그래서 리버스 프록시, 헤더, 포트, 헬스 체크를 직접 명령으로 따라가는 실습을 시작했다.</p>
+<p data-ke-size="size16">다음 글에서는 그 실습 내용, <b>Nginx 리버스 프록시와 X-Forwarded-Proto를 curl로 직접 확인해 본 과정</b>을 정리할 예정이다.</p>
