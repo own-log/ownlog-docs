@@ -414,6 +414,18 @@ INSERT INTO topics (slug, name, display_order) VALUES
 - 탈퇴(U-06)하면 이 행을 지워요.
 - **무중단 배포 규칙**: 추가만 하는 마이그레이션이라, 배포하는 동안 함께 떠 있는 예전 버전이 깨지지 않아요 (`docs/guide/배포와-CI-CD.md` 4.4).
 
+### 3.11 `oauth_authorization_requests` · `oauth_login_codes` (소셜 로그인 중간 상태, V7)
+
+블루-그린 배포 중에는 blue·green 두 서버가 함께 떠 있어서, 소셜 로그인 중간 상태를 서버 메모리에 두면 다른 서버로 돌아왔을 때 실패해요(트러블슈팅 24번). 그래서 두 서버가 함께 쓰는 DB에 둬요.
+
+| 테이블 | 컬럼 | 설명 |
+|---|---|---|
+| `oauth_authorization_requests` | `state` PK, `request` BYTEA, `expires_at` | 동의 화면으로 보낼 때 만든 요청(Spring `OAuth2AuthorizationRequest`). **5분** 유효, 돌아오면 한 번 꺼내고 삭제. 같은 state가 브라우저 쿠키 `OWNLOG_OAUTH_STATE`에도 있어야 꺼낼 수 있어요(로그인 CSRF 방지) |
+| `oauth_login_codes` | `code_hash` PK(SHA-256), `user_id` FK → users, `expires_at` | 로그인 성공 후 화면에 넘기는 1회용 코드. **60초** 유효, 원문이 아니라 해시만 저장, `DELETE … RETURNING`으로 한 번만 |
+
+- 기간이 지난 행은 다음 저장 때 지워요(별도 배치 없음). 둘 다 몇 초~몇 분만 사는 데이터예요.
+- 추가만 하는 마이그레이션이라 배포 중 예전 버전과 함께 써도 안전해요.
+
 ## 4. 인덱스
 
 | 테이블 | 인덱스 | 쓰는 곳 |
