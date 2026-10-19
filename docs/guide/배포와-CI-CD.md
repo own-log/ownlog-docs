@@ -320,8 +320,25 @@ docker logs --tail 50 ownlog-blue                              # 앱 로그
 docker logs --tail 20 ownlog-proxy                             # 프록시 로그 (502가 나면 여기)
 ```
 
-**예전 버전으로 되돌리기(롤백)** 는 GitHub Actions에서 해요. 되돌리고 싶은 커밋으로 main을 되돌리는 커밋(`git revert`)을 올리면,
-그 커밋으로 다시 블루-그린 배포가 돌아요. 서버에서 손으로 컨테이너를 바꾸지 않는 이유는, **서버 상태와 main이 항상 같게** 유지하려는 거예요.
+### 롤백 (v1.3.0부터)
+배포 스크립트가 **지금 이미지 + 직전 이미지** 2개를 서버에 남겨 두고, 직전 이미지 이름을 `~/ownlog-deploy/previous-image`에 적어 둬요.
+
+1. GitHub → **Actions → Rollback → Run workflow**
+2. `image_tag`를 **비워 두면 직전 버전**, 커밋 SHA를 넣으면 그 버전(서버에 이미지가 남아 있어야 해요)
+3. 다시 빌드하지 않고 블루-그린 전환만 해서 **1~2분**이면 끝나요
+
+```bash
+cat ~/ownlog-deploy/previous-image          # 롤백하면 돌아갈 이미지
+docker images ownlog                         # 남아 있는 이미지 (현재 + 직전)
+```
+
+> 롤백은 급한 불을 끄는 거예요. 원인을 고친 커밋을 main에 올리면 다시 정상 배포 흐름으로 돌아와요.
+> (예전 방식: `git revert` 커밋을 올려 다시 빌드 → 10분 이상)
+
+### 배포가 겹치지 않게 (v1.3.0부터)
+- **Actions:** `deploy.yml`·`rollback.yml`이 같은 `concurrency` 그룹(`deploy-production`)이라 한 번에 하나만 돌아요. 진행 중인 배포는 취소하지 않고, 기다리는 실행은 가장 최신 것만 남아요.
+- **서버:** `deploy.sh`가 `flock`으로 `~/ownlog-deploy/deploy.lock`을 잡아요. 누가 서버에서 직접 실행해도 겹치면 "다른 배포가 진행 중이에요"로 멈춰요.
+- 왜 필요한가: 두 배포가 동시에 "지금 blue니까 green에 띄우자"로 판단하면 서로의 green을 지울 수 있어요 (트러블슈팅 22번).
 
 ---
 
